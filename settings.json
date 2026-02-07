@@ -1,0 +1,4 @@
+{
+  "search_query": "(\"Director\" OR \"VP\") AND (\"Business Development\" OR \"Go to Market\" OR \"GTM\") AND (\"Fabric\" OR \"Textile\" OR \"New Materials\") AND (\"R&D\" OR \"Quality\" OR \"Sustainability\")",
+  "companies": ["Patagonia", "Gore-Tex", "Lululemon", "North Face", "Nike", "Adidas", "Arc'teryx"]
+}

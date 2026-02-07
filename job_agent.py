@@ -1,10 +1,10 @@
-
 import os
 import json
 import requests
 import pandas as pd
 from datetime import datetime
 
+# Load Settings
 with open('settings.json', 'r') as f:
     settings = json.load(f)
 
@@ -18,36 +18,41 @@ def fetch_jobs():
         "hl": "en",
         "api_key": SERPAPI_KEY
     }
-    response = requests.get("https://serpapi.com/search", params=params)
-    data = response.json()
-    jobs = data.get('jobs_results', [])
-    
-    # DEBUG: Print the titles of found jobs to the GitHub Log
-    print(f"Total jobs found by API: {len(jobs)}")
-    for j in jobs:
-        print(f"Found: {j.get('title')} at {j.get('company_name')}")
-        
-    return jobs
+    try:
+        response = requests.get("https://serpapi.com/search", params=params)
+        return response.json().get('jobs_results', [])
+    except Exception as e:
+        print(f"Error: {e}")
+        return []
 
 if __name__ == "__main__":
-    all_found_jobs = fetch_jobs()
+    found_jobs = fetch_jobs()
     file_name = 'daily_jobs.csv'
     
-    # Prepare new data
-    new_rows = []
-    for j in all_found_jobs:
-        new_rows.append({
-            "Date Found": datetime.now().strftime("%Y-%m-%d"),
-            "Title": j.get("title"),
-            "Company": j.get("company_name"),
-            "Location": j.get("location"),
-            "Link": j.get("related_links", [{}])[0].get("link")
-        })
-
-    if new_rows:
-        df_final = pd.DataFrame(new_rows)
-        # We are overwriting the file this time to force a refresh
-        df_final.to_csv(file_name, index=False)
-        print(f"Successfully wrote {len(new_rows)} jobs to {file_name}")
+    # Load existing jobs to avoid duplicates
+    if os.path.exists(file_name):
+        df_old = pd.read_csv(file_name)
     else:
-        print("API returned zero jobs for this query.")
+        df_old = pd.DataFrame(columns=["Date Found", "Title", "Company", "Location", "Link"])
+
+    new_entries = []
+    for j in found_jobs:
+        link = j.get("related_links", [{}])[0].get("link")
+        # Only add if the link isn't already in our sheet
+        if link and link not in df_old['Link'].values:
+            new_entries.append({
+                "Date Found": datetime.now().strftime("%Y-%m-%d"),
+                "Title": j.get("title"),
+                "Company": j.get("company_name"),
+                "Location": j.get("location"),
+                "Link": link
+            })
+
+    if new_entries:
+        df_new = pd.DataFrame(new_entries)
+        # Put new jobs at the top
+        df_final = pd.concat([df_new, df_old], ignore_index=True)
+        df_final.to_csv(file_name, index=False)
+        print(f"Success! Added {len(new_entries)} new jobs.")
+    else:
+        print("No new jobs found today.")

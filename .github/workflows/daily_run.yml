@@ -1,31 +1,33 @@
 name: Daily Job Scraper
 on:
   schedule:
-    - cron: '0 13 * * *' # Runs at 8 AM EST
+    - cron: '0 13 * * *' # Runs at 8:00 AM EST (13:00 UTC)
   workflow_dispatch:
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/python-python@v4
         with:
           python-version: '3.9'
-      - name: Run Scraper
+
+      - name: Install dependencies
+        run: pip install pandas requests
+
+      - name: Run scraper
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          MY_EMAIL: ${{ secrets.MY_EMAIL }}
+        run: python job_agent.py
+
+      - name: Commit and push changes
         run: |
-          pip install requests pandas
-          python job_agent.py
-      - name: Save Results
-        run: |
-          git config --global user.name "Job-Bot"
+          git config --global user.name "JobBot"
           git config --global user.email "bot@github.com"
           git add daily_jobs.csv
-          git commit -m "New jobs found" || exit 0
+          git commit -m "Update daily jobs list" || exit 0
           git push

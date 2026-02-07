@@ -11,7 +11,11 @@ with open('settings.json', 'r') as f:
 SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 
 def fetch_jobs():
-    query = f"{settings['search_query']} {' OR '.join(settings['companies'])}"
+    # If companies list is empty, just use the search_query
+    query = settings['search_query']
+    if settings.get('companies'):
+        query += f" {' OR '.join(settings['companies'])}"
+    
     params = {
         "engine": "google_jobs",
         "q": query,
@@ -29,17 +33,18 @@ if __name__ == "__main__":
     all_found_jobs = fetch_jobs()
     file_name = 'daily_jobs.csv'
     
-    # Load existing jobs to avoid duplicates
     if os.path.exists(file_name):
-        df_old = pd.read_csv(file_name)
+        try:
+            df_old = pd.read_csv(file_name)
+        except:
+            df_old = pd.DataFrame(columns=["Date Found", "Title", "Company", "Location", "Link"])
     else:
         df_old = pd.DataFrame(columns=["Date Found", "Title", "Company", "Location", "Link"])
 
     new_entries = []
     for j in all_found_jobs:
         link = j.get("related_links", [{}])[0].get("link")
-        # Only add if the link isn't already in our sheet
-        if link not in df_old['Link'].values:
+        if link and link not in df_old['Link'].values:
             new_entries.append({
                 "Date Found": datetime.now().strftime("%Y-%m-%d"),
                 "Title": j.get("title"),
@@ -51,7 +56,6 @@ if __name__ == "__main__":
     if new_entries:
         df_new = pd.DataFrame(new_entries)
         df_final = pd.concat([df_old, df_new], ignore_index=True)
-        # Keep the most recent jobs at the top
         df_final = df_final.sort_values(by="Date Found", ascending=False)
         df_final.to_csv(file_name, index=False)
         print(f"Success: Added {len(new_entries)} new jobs.")
